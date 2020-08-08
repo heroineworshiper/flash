@@ -29,8 +29,8 @@ The photodiode must be disconnected from photodiode 0-5.5V & photodiode
 
 
 usb_programmer.c: a junk PIC programmer.  The hex file is programmable
-with a pickit for mortals but pickit users must write the special
-function registers a different way.
+with a pickit for mortals but pickit users must create an mplab project
+to write the special function registers & hex file.
 
 flash_pot.s: the PIC firmware.  Requires gpasm to compile.
 

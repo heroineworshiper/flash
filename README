@@ -1,0 +1,37 @@
+Provide manual control to a Canon 244T.
+
+THE 300V CAPS MUST BE COMPLETELY DISCHARGED BEFORE ANY WORK ON THE
+FLASH.  The caps retain lethal voltage indefinitely after the flash is
+powered off.
+
+The 244T measures the resistance of a photodiode between 5.5V &
+photodiode 0V to determine the amount of power.  This program merely
+provides an adjustible resistor to replace the photodiode.  The
+resistance is logarithmic & set with up & down buttons.  A junk LED
+readout shows 0-10 for the value.
+
+flash34.jpg: labeled photo of the flash innards
+
+resistor*.jpg: the board in various stages of completion
+
+flash_pot.pcb: circuit board using a junk LED readout.  Read with the
+pcb program: http://pcb.geda-project.org/  It connects to the following
+flash pads:
+
+    BOARD -> FLASH
+    6V -> 5.5V
+    RESISTOR W -> PHOTODIODE 0V
+    GND -> BATT GND
+    The crystal can be any frequency down to 32khz.
+
+The photodiode must be disconnected from photodiode 0-5.5V & photodiode
+0V.
+
+
+usb_programmer.c: a junk PIC programmer.  The hex file is programmable
+with a pickit for mortals.
+
+flash_pot.s: the PIC firmware.  Requires gpasm to compile.
+
+
+

@@ -52,6 +52,7 @@ wireless.pcb: failed PIC board
 
 wireless2.pcb: STM32 board
 
+wireless.X: failed PIC firmware
 
 
 

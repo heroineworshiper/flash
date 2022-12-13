@@ -1,4 +1,9 @@
-Provide manual control to a Canon 244T.
+What you'll find here:
+
+
+----------------------------------------------------------------------------
+
+Software to provide manual control to a Canon 244T.
 
 THE 300V CAPS MUST BE COMPLETELY DISCHARGED BEFORE ANY WORK ON THE
 FLASH.  The caps retain lethal voltage indefinitely after the flash is
@@ -33,6 +38,28 @@ with a pickit for mortals but pickit users must create an mplab project
 to write the special function registers & hex file.
 
 flash_pot.s: the PIC firmware.  Requires gpasm to compile.
+
+------------------------------------------------------------------------------
+
+
+Convert a wired Canon ETTL flash to wireless.
+
+wireless.c, camera.c flash.c, wireless.h: STM32 firmware
+
+bootload.c, bootloader.X: single wire bootloader for a failed PIC implementation
+
+wireless.pcb: failed PIC board
+
+wireless2.pcb: STM32 board
+
+
+
+
+
+
+
+
+
 
 
 

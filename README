@@ -46,6 +46,8 @@ Convert a wired Canon ETTL flash to wireless.  This required a 168Mhz
 processor to bit bang fast enough, though the flash side might be doable
 with something slower.
 
+This requires stm32stuff to be in the parent directory.
+
 wireless.c, camera.c flash.c, wireless.h: STM32 firmware
 
 bootload.c, bootloader.X: single wire bootloader for a failed PIC implementation

@@ -12,7 +12,8 @@ ARM_CFLAGS := \
 	-mlittle-endian \
 	-ffreestanding \
 	-I. \
-	-I../stm32stuff
+	-I../stm32stuff \
+        -DENABLE_PRINT
 ARM_LIBM := $(shell $(GCC_ARM) $(ARM_CFLAGS) -print-file-name=libm.a)
 ARM_LIBC := $(shell $(GCC_ARM) $(ARM_CFLAGS) -print-libgcc-file-name)
 ARM_LFLAGS := -mcpu=cortex-m4 \
@@ -38,7 +39,7 @@ WIRELESS_OBJS := \
 ARM_OBJS := \
 	../stm32stuff/startup_main.o \
 	../stm32stuff/arm_math2.o \
-	../stm32stuff/uart.o \
+	uart.o \
 	../stm32stuff/linux.o \
 	../stm32stuff/misc.o \
 	../stm32stuff/stm32f4xx_rcc.o \
@@ -89,7 +90,7 @@ $(WIRELESS_OBJS) $(ARM_OBJS):
 
 ../stm32stuff/startup_main.o:     ../stm32stuff/startup_main.s
 ../stm32stuff/arm_math2.o:        ../stm32stuff/arm_math2.c
-../stm32stuff/uart.o:             ../stm32stuff/uart.c
+uart.o:             ../stm32stuff/uart.c
 ../stm32stuff/linux.o:            ../stm32stuff/linux.c
 ../stm32stuff/misc.o:             ../stm32stuff/misc.c
 ../stm32stuff/stm32f4xx_rcc.o:    ../stm32stuff/stm32f4xx_rcc.c

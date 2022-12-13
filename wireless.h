@@ -21,8 +21,6 @@
 #ifndef WIRELESS_H
 #define WIRELESS_H
 
-// enable printing
-#define ENABLE_PRINT
 
 // print the clock waveform before a timeout
 // #define DEBUG_TIMEOUT

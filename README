@@ -42,7 +42,9 @@ flash_pot.s: the PIC firmware.  Requires gpasm to compile.
 ------------------------------------------------------------------------------
 
 
-Convert a wired Canon ETTL flash to wireless.
+Convert a wired Canon ETTL flash to wireless.  This required a 168Mhz
+processor to bit bang fast enough, though the flash side might be doable
+with something slower.
 
 wireless.c, camera.c flash.c, wireless.h: STM32 firmware
 

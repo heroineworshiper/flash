@@ -48,7 +48,15 @@ with something slower.
 
 This requires stm32stuff to be in the parent directory.
 
-wireless.c, camera.c flash.c, wireless.h: STM32 firmware
+enclosure2.FCStd: Freecad models of the enclosures.
+    flash top, flash bottom: flash enclosure
+    camera top, camera mid, camera bottom: camera enclosure
+
+wireless.c, camera.c flash.c: STM32 firmware
+
+wireless.h:
+    Enable SIM_CAM to compile the flash firmware.
+    Enable SIM_FLASH to compile the camera firmware.
 
 bootload.c, bootloader.X: single wire bootloader for a failed PIC implementation
 

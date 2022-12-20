@@ -50,7 +50,8 @@ This requires stm32stuff to be in the parent directory.
 
 enclosure2.FCStd: Freecad models of the enclosures.
     flash top, flash bottom: flash enclosure
-    camera top, camera mid, camera bottom: camera enclosure
+    camera mid, camera bottom: camera enclosure
+    camera top: be sure the support layer is the shortest path
 
 wireless.c, camera.c flash.c: STM32 firmware
 

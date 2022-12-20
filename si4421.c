@@ -22,10 +22,14 @@
 #include "wireless.h"
 #include "stm32f4xx_rcc.h"
 #include "stm32f4xx_gpio.h"
+#include "stm32f4xx_tim.h"
 #include "misc.h"
 #include "uart.h"
 
 // Si4421 radio bits
+
+
+int radio_state = RADIO_IDLE;
 
 // RADIO_CHANNEL is from 96-3903 & set by the user
 // data rate must be slow enough to service FIFOs
@@ -113,8 +117,11 @@ void write_spi(uint16_t data)
         }
         data <<= 1;
 // need the delay if the system clock is over 16Mhz
+// Timer based delay seems to lock up inside an interrupt handler
+//        usleep(1);
         udelay(1);
         SET_PIN(RADIO_CLK_GPIO, RADIO_CLK_PIN);
+//        usleep(1);
         udelay(1);
         CLEAR_PIN(RADIO_CLK_GPIO, RADIO_CLK_PIN);
     }
@@ -208,19 +215,31 @@ void init_radio()
     write_spi(RXCREG);
     write_spi(TXCREG);
     write_spi(BBFCREG);
-#ifdef SIM_FLASH
-// turn on the transmitter to tune.  Not necessary to receive.
-    write_spi(PMCREG | 0x0020);
-#endif
 
-
-// receive mode
-#ifdef SIM_CAM
-    write_spi(PMCREG | 0x0080);
-#endif
 }
 
+// turn the radio off
+void radio_off()
+{
+    write_spi(PMCREG);
+}
 
+// turn the transmitter on
+// Your job: wait 5ms
+void transmitter_on()
+{
+    write_spi(PMCREG | 0x0020);
+
+    radio_state = RADIO_WARMUP;
+    SET_RADIO_TIMER(RADIO_WARMUP_TIME)
+    ENABLE_RADIO_TIMER
+
+}
+
+void receiver_on()
+{
+    write_spi(PMCREG | 0x0080);
+}
 
 
 

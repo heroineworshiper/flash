@@ -34,7 +34,7 @@
 
 // receiver mode
 // Enable the simulated camera
-//#define SIM_CAM
+#define SIM_CAM
 
 
 
@@ -107,6 +107,11 @@ extern volatile int radio_size;
 extern volatile int radio_write_ptr;
 extern volatile int radio_read_ptr;
 extern uint8_t radio_data;
+#define RADIO_IDLE 0
+#define RADIO_WARMUP 1
+#define RADIO_TRANSMIT 2
+#define RADIO_RECEIVE 3
+extern int radio_state;
 
 extern const uint8_t salt[RADIO_PACKETSIZE * 2];
 
@@ -140,6 +145,14 @@ extern uint8_t trigger_code;
     TIM2->CNT = -(x); \
     TIM2->SR = (uint16_t)~TIM_FLAG_Update;
 #define BYTE_TIMER_EXPIRED (TIM2->SR & TIM_FLAG_Update)
+
+
+#define ENABLE_RADIO_TIMER TIM5->CR1 |= TIM_CR1_CEN;
+#define DISABLE_RADIO_TIMER TIM5->CR1 &= (uint16_t)~TIM_CR1_CEN;
+#define SET_RADIO_TIMER(x) \
+    TIM5->CNT = -(x); \
+    TIM5->SR = (uint16_t)~TIM_FLAG_Update;
+
 #define START_ADC2 ADC2->CR2 |= (uint32_t)ADC_CR2_SWSTART;
 
 
@@ -166,6 +179,10 @@ extern uint8_t trigger_code;
 #define PACKET_TIMEOUT 80000
 // Wait this long for trigger codes
 #define TRIGGER_TIMEOUT 1000000
+// wait this many us before transmitting
+#define RADIO_WARMUP_TIME 5000
+// turn off radio after this many us of inactivity
+#define RADIO_TIMEOUT 1000000
 
 #define PACKET_MAX 128
 // the last captured packet
@@ -198,6 +215,7 @@ extern const uint8_t maneflash2_vars[];
 #define TYPE_MANE_FLASH1 6
 #define TYPE_MANE_FLASH2 7
 #define TYPE_FAST_FLASH 8
+#define TYPE_MANUAL_FLASH 9
 extern int packet_type;
 
 // number of times to repeat each packet
@@ -208,6 +226,9 @@ extern const int ref_packet_size[];
 extern const uint8_t* ref_packets[];
 
 void init_radio();
+void radio_off();
+void transmitter_on();
+
 void usleep(int us);
 void camera_loop();
 void flash_loop();

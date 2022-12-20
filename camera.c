@@ -53,7 +53,8 @@ int debug_offset = 0;
 
 
 uint8_t packet_id = 0xff;
-
+// time between the last packet & 1st byte of the current packet
+int packet_time = 0;
 
 #ifdef SIM_FLASH
 
@@ -195,12 +196,24 @@ void process_byte()
         {
             if(capture_size == 1)
             {
+// time since last byte
+                packet_time = time_difference;
+
                 if(toflash_data[0] == 0xa5)
                 {
                     packet_type = TYPE_METERING2;
                     trigger_state = TRIGGER_IDLE;
                     trigger_code = TRIGGER_CODE_NONE;
-                    print_text("\nMETERING2\n");
+                    print_text("\nMETERING2 ");
+                }
+                else
+                if(toflash_data[0] == 0xbb)
+                {
+// Should never happen because the camera doesn't know the flash's mode
+                    packet_type = TYPE_MANUAL_FLASH;
+                    trigger_state = TRIGGER_FLASH;
+                    trigger_code = TRIGGER_CODE_NONE;
+                    print_text("\nMANUAL FLASH ");
                 }
             }
             else
@@ -211,7 +224,7 @@ void process_byte()
                     packet_type = TYPE_MANE_FLASH1;
                     trigger_state = TRIGGER_FLASH;
                     trigger_code = TRIGGER_CODE_NONE;
-                    print_text("\nMANE FLASH1\n");
+                    print_text("\nMANE FLASH1 ");
                 }
                 else
                 if(toflash_data[0] == 0xb4 &&
@@ -222,7 +235,7 @@ void process_byte()
                     packet_type = TYPE_MANE_FLASH2;
                     trigger_state = TRIGGER_IDLE;
                     trigger_code = TRIGGER_CODE_NONE;
-                    print_text("\nMANE FLASH2\n");
+                    print_text("\nMANE FLASH2 ");
                 } 
                 else
                 if(toflash_data[0] == 0xb4 &&
@@ -231,7 +244,7 @@ void process_byte()
                     packet_type = TYPE_FAST_FLASH;
                     trigger_state = TRIGGER_FLASH;
                     trigger_code = TRIGGER_CODE_NONE;
-                    print_text("\nFAST FLASH\n");
+                    print_text("\nFAST FLASH ");
                 } 
                 else
                 if(toflash_data[1] == 0xb4)
@@ -239,7 +252,7 @@ void process_byte()
                     packet_type = TYPE_PREFLASH1;
                     trigger_state = TRIGGER_IDLE;
                     trigger_code = TRIGGER_CODE_NONE;
-                    print_text("\nPREFLASH1\n");
+                    print_text("\nPREFLASH1 ");
                 }
                 else
                 if(toflash_data[0] == 0xb4 &&
@@ -248,7 +261,7 @@ void process_byte()
                     packet_type = TYPE_PREFLASH2;
                     trigger_state = TRIGGER_PREFLASH;
                     trigger_code = TRIGGER_CODE_NONE;
-                    print_text("\nPREFLASH2\n");
+                    print_text("\nPREFLASH2 ");
                 }
             }
             else
@@ -261,7 +274,7 @@ void process_byte()
                     packet_type = TYPE_METERING1;
                     trigger_state = TRIGGER_IDLE;
                     trigger_code = TRIGGER_CODE_NONE;
-                    print_text("\nMETERING1\n");
+                    print_text("\nMETERING1 ");
                 }
                 else
                 if(toflash_data[1] == 0xb5 &&
@@ -271,10 +284,11 @@ void process_byte()
                     packet_type = TYPE_POWERON;
                     trigger_state = TRIGGER_IDLE;
                     trigger_code = TRIGGER_CODE_NONE;
-                    print_text("\nPOWERON\n");
+                    print_text("\nPOWERON ");
                 }
                 else
                 {
+#ifndef DEBUG_RAW
                     print_text("\nUNKNOWN PACKET: ");
                     for(i = 0; i < capture_size; i++)
                     {
@@ -284,6 +298,7 @@ void process_byte()
                         send_uart(' ');
                     }
                     print_lf();
+#endif
                 }
             }
         }
@@ -291,12 +306,28 @@ void process_byte()
         if(prev_type == TYPE_NONE &&
             packet_type != TYPE_NONE)
         {
+            print_number_nospace(packet_time);
+            print_text("uS\n");
 // initialize the simulated packet
             int size = ref_packet_size[packet_type];
             const uint8_t *ref = ref_packets[packet_type];
             for(i = 0; i < size; i++)
                 fromflash_data[i] = ref[i * 2];
-// TODO: fill in fromflash values
+// fill in fromflash values
+            switch(packet_type)
+            {
+                case TYPE_METERING1:
+                    break;
+                case TYPE_MANE_FLASH1:
+// ISO code response hack
+// This value depends on focal length & ISO
+// yet seems to be ignored for every lens except 100mm.
+// So we always set it to the value the flash creates for 100mm.
+                    fromflash_data[6] = 0x62; 
+                    break;
+            }
+            
+
         }
 
         if(packet_type != TYPE_NONE)
@@ -336,14 +367,47 @@ void process_byte()
                 print_text("\noffset > RADIO_PACKETSIZE\n");
             }
 
+
+
 // send it to the flash
+            TIM_ITConfig(TIM5, TIM_IT_Update, DISABLE);
+            if(radio_state == RADIO_IDLE)
+            {
+// start the radio
+//                print_text("Starting radio\n");
+                transmitter_on();
+                TOGGLE_PIN(LED_GPIO, 1 << LED_PIN);
+            }
+            else
+            if(radio_state == RADIO_TRANSMIT)
+            {
+// reset the inactivity timer
+                SET_RADIO_TIMER(RADIO_TIMEOUT);
+                if(packet_type == TYPE_METERING1)
+                {
+                    TOGGLE_PIN(LED_GPIO, 1 << LED_PIN);
+                }
+            }
+            TIM_ITConfig(TIM5, TIM_IT_Update, ENABLE);
+
+
             for(i = 0; i < repeats[packet_type]; i++)
+            {
                 transmit();
+            }
 #endif // SIM_FLASH
 
 
 // Dump the packet
+#ifndef DEBUG_RAW
             diff_packet();
+#endif
+            if(packet_type == TYPE_MANE_FLASH1)
+            {
+                print_text("POWER=");
+                print_hex2(toflash_data[15]);
+                print_lf();
+            }
 
 
             reset_packet();
@@ -367,7 +431,8 @@ void camera_loop()
 
 #ifdef SIM_FLASH
 // transmit to real flash
-        if((USART1->SR & USART_FLAG_TC) != 0)
+        if(radio_state == RADIO_TRANSMIT &&
+            (USART1->SR & USART_FLAG_TC) != 0)
         {
             if(radio_size > 0)
 	        {
@@ -672,6 +737,36 @@ void TIM1_UP_TIM10_IRQHandler()
     }
 }
 
+#ifdef SIM_FLASH
+
+// radio timer
+void TIM5_IRQHandler()
+{
+    if((TIM5->SR & TIM_FLAG_Update))
+	{
+		TIM5->SR = ~TIM_FLAG_Update;
+
+        switch(radio_state)
+        {
+// radio has warmed up
+            case RADIO_WARMUP:
+                radio_state = RADIO_TRANSMIT;
+// reconfigure for power management
+                SET_RADIO_TIMER(RADIO_TIMEOUT);
+                break;
+            case RADIO_TRANSMIT:
+// timeout after inactivity
+//                print_text("Stopping radio\n");
+// power it down.  Can't poll in the mane loop.
+                radio_off();
+                DISABLE_RADIO_TIMER
+                radio_state = RADIO_IDLE;
+                SET_PIN(LED_GPIO, 1 << LED_PIN);
+                break;
+        }
+    }
+}
+#endif // SIM_FLASH
 #endif // !SIM_CAM
 
 

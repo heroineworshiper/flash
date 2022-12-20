@@ -44,7 +44,10 @@ void get_start1();
 void (*handle_rx)() = get_start1;
 int rx_counter = 0;
 uint8_t packet_id = 0;
-
+// last exposure compensation code
+int8_t exposure_code = 0;
+// last focal length
+uint8_t focal_length = 0;
 
 // returns 1 if it timed out
 int wait_trigger(uint8_t code)
@@ -120,6 +123,34 @@ void get_packet()
                     toflash_data[*vars] = radio_packet[offset++];
                     vars++;
                 }
+            }
+
+// apply exposure compensation
+// & other hacks to flash power
+            if(packet_type == TYPE_MANE_FLASH1)
+            {
+                int power_offset = 0;
+                if(exposure_code > 0)
+                {
+                    power_offset = -exposure_code + 1;
+                }
+                else
+                if(exposure_code < 0)
+                {
+                    power_offset = -exposure_code;
+                }
+
+//                print_text("power=");
+//                print_hex2(toflash_data[15]);
+//                print_text(" ");
+//                print_text("power_offset=");
+//                print_number(power_offset);
+//                print_lf();
+
+                int power = toflash_data[15];
+                power += power_offset;
+                CLAMP(power, 0, 0xff);
+                toflash_data[15] = power;
             }
 
 // send it to the flash
@@ -200,7 +231,30 @@ void get_packet()
                 }
             }
 
+// reset the ID timer & pin
+            TIM_ITConfig(TIM5, TIM_IT_Update, DISABLE);
+            SET_RADIO_TIMER(RADIO_TIMEOUT);
+            ENABLE_RADIO_TIMER
+            TIM_ITConfig(TIM5, TIM_IT_Update, ENABLE);
+            SET_PIN(ID_GPIO, 1 << ID_PIN);
 
+
+
+            if(packet_type == TYPE_POWERON)
+            {
+                TOGGLE_PIN(LED_GPIO, 1 << LED_PIN);
+                exposure_code = fromflash_data[15];
+                focal_length = toflash_data[18];
+            }
+            else
+// get flash configuration
+            if(packet_type == TYPE_METERING1)
+            {
+                TOGGLE_PIN(LED_GPIO, 1 << LED_PIN);
+                exposure_code = fromflash_data[12];
+                focal_length = toflash_data[15];
+            }
+            else
 // handle triggers
             if(packet_type == TYPE_PREFLASH2)
             {
@@ -216,7 +270,8 @@ void get_packet()
             else
             if((packet_type == TYPE_MANE_FLASH1 &&
                 toflash_data[17] == 0x1d) ||
-                packet_type == TYPE_FAST_FLASH)
+                packet_type == TYPE_FAST_FLASH ||
+                packet_type == TYPE_MANUAL_FLASH)
             {
                 if(!wait_trigger(TRIGGER_CODE_CLK))
                 {
@@ -228,6 +283,7 @@ void get_packet()
                     if(!wait_trigger(TRIGGER_CODE_X))
                     {
                         CLEAR_PIN(X_GPIO, 1 << X_PIN);
+// This is supposed to be the shutter speed but is hard coded to 1/100 for now.
                         usleep(10000);
                         SET_PIN(X_GPIO, 1 << X_PIN);
                     }
@@ -244,7 +300,10 @@ void get_packet()
                     print_text("POWERON\n");
                     break;
                 case TYPE_METERING1:
-                    print_text("METERING1\n");
+                    print_text("METERING1 ");
+                    print_text("EXPOSURE CODE=");
+                    print_hex2(exposure_code);
+                    print_lf();
                     break;
                 case TYPE_METERING2:
                     print_text("METERING2\n");
@@ -256,13 +315,18 @@ void get_packet()
                     print_text("PREFLASH2\n");
                     break;
                 case TYPE_MANE_FLASH1:
-                    print_text("MANE_FLASH1\n");
+                    print_text("MANE FLASH1 ");
+                    print_text("ISO response=");
+                    print_hex2(fromflash_data[6]);
+                    print_text(" ISO code=");
+                    print_hex2(toflash_data[8]);
+                    print_lf();
                     break;
                 case TYPE_MANE_FLASH2:
-                    print_text("MANE_FLASH2\n");
+                    print_text("MANE FLASH2\n");
                     break;
                 case TYPE_FAST_FLASH:
-                    print_text("FAST_FLASH\n");
+                    print_text("FAST FLASH\n");
                     break;
             }
 
@@ -317,6 +381,8 @@ void get_start1()
 
 void flash_loop()
 {
+    receiver_on();
+
     while(1)
     {
         HANDLE_UART_OUT
@@ -351,6 +417,20 @@ void USART1_IRQHandler(void)
         if(radio_write_ptr >= RADIO_BUFSIZE)
             radio_write_ptr = 0;
         radio_size++;
+    }
+}
+
+
+// ID pin timer
+void TIM5_IRQHandler()
+{
+    if(TIM5->SR & TIM_FLAG_Update)
+	{
+		TIM5->SR = ~TIM_FLAG_Update;
+// disable the ID pin after 1 overflow
+        DISABLE_RADIO_TIMER
+        CLEAR_PIN(ID_GPIO, 1 << ID_PIN);
+        SET_PIN(LED_GPIO, 1 << LED_PIN);
     }
 }
 

@@ -188,6 +188,12 @@ const uint8_t mane_flash1_ref[] =
 
 };
 
+const uint8_t manual_flash_ref[] =
+{
+    0x8e, 0xbb, 0xfb, 0x48, 0x00, 0xff, 0x8e, 0xb7, 0x8e, 0x16, 0x8e, 0xb8, 0x8e, 0x6d, 0x8e, 0xb4, 
+    0x8e, 0x1d, 0x8e, 0xb4, 0x8e, 0x3d
+};
+
 const uint8_t mane_flash2_ref[] =
 {
     0x7f, 0xb4, 0x8e, 0x1d, 0x8e, 0xb3, 0x00, 0x12, 0x00, 0x46, 0x00, 0x2f, 0x00, 0xfc, 0x88, 0xff,
@@ -206,7 +212,7 @@ const uint8_t fast_flash_ref[] =
 const uint8_t poweron_vars[] = { 18, 38, 45, 47, 0 };
 const uint8_t metering1_vars[] = { 15, 35, 42, 44, 46, 0 };
 const uint8_t preflash1_vars[] = { 2, 11, 0 };
-const uint8_t maneflash1_vars[] = { 8, 11, 13, 15, 17, 24, 25, 0 };
+const uint8_t maneflash1_vars[] = { 8, 11, 13, 15, 17, 21, 24, 25, 0 };
 const uint8_t maneflash2_vars[] = { 1, 0 };
 
 int packet_type = TYPE_NONE;
@@ -222,7 +228,8 @@ const uint8_t repeats[] =
     2, 
     4, 
     2, 
-    4 
+    4,
+    0
 };
 
 // tables of variables for each packet
@@ -236,6 +243,7 @@ const uint8_t *var_offsets[] =
     0,
     maneflash1_vars,
     maneflash2_vars,
+    0,
     0
 };
 
@@ -250,6 +258,7 @@ const int ref_packet_size[] =
     sizeof(mane_flash1_ref) / 2,
     sizeof(mane_flash2_ref) / 2,
     sizeof(fast_flash_ref) / 2,
+    sizeof(manual_flash_ref) / 2,
 };
 
 const uint8_t* ref_packets[] = 
@@ -263,11 +272,13 @@ const uint8_t* ref_packets[] =
     mane_flash1_ref,
     mane_flash2_ref,
     fast_flash_ref,
+    manual_flash_ref,
 };
 
 
 
 // delay with TIM2
+// seems to lock up inside an interrupt handler
 void usleep(int us)
 {
     SET_BYTE_TIMER(us);
@@ -285,17 +296,27 @@ void main()
             RCC_APB2Periph_TIM10, 
         ENABLE);
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2 |
+            RCC_APB1Periph_TIM5 |
             RCC_APB1Periph_DAC, 
         ENABLE);
 
+
+ 	NVIC_InitTypeDef NVIC_InitStructure;
+  	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;
+ 	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
+ 	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
  	NVIC_SetVectorTable(NVIC_VectTab_FLASH, PROGRAM_START - 0x08000000);
     init_linux();
 	init_uart();
     init_radio();
 
     print_text("\n\n\n\nWelcome to wireless ETTL\n");
-//    print_text("FROM FLASH/TO FLASH/TIME DIFFERENCE/PACKET OFFSET\n");
-//    print_text("FROM FLASH/TO FLASH\n");
+#ifdef SIM_FLASH
+    print_text("SIM_FLASH\n");
+#endif
+#ifdef SIM_CAM
+    print_text("SIM_CAM\n");
+#endif
 
 // LED
     GPIO_InitTypeDef GPIO_InitStructure;
@@ -347,7 +368,7 @@ void main()
 
 
 
-// measure time between bytes & time out trigger states
+// measure time between bytes & create timeouts
     TIM_TimeBaseInitTypeDef  TIM_TimeBaseStructure;
     TIM_DeInit(TIM2);
 	TIM_TimeBaseStructInit(&TIM_TimeBaseStructure);
@@ -357,6 +378,17 @@ void main()
 	TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
 	TIM_TimeBaseInit(TIM2, &TIM_TimeBaseStructure);
 	TIM_Cmd(TIM2, ENABLE);
+
+#if defined(SIM_CAM) || defined(SIM_FLASH)
+// timer for radio & ID pin
+    TIM_DeInit(TIM5);
+    TIM_TimeBaseInit(TIM5, &TIM_TimeBaseStructure);
+    DISABLE_RADIO_TIMER
+
+ 	NVIC_InitStructure.NVIC_IRQChannel = TIM5_IRQn;
+ 	NVIC_Init(&NVIC_InitStructure);
+	TIM_ITConfig(TIM5, TIM_IT_Update, ENABLE);
+#endif
 
 
 #ifdef SIM_CAM
@@ -421,11 +453,7 @@ void main()
 	TIM_TimeBaseInit(TIM10, &TIM_TimeBaseStructure);
 	TIM_Cmd(TIM10, ENABLE);
 
- 	NVIC_InitTypeDef NVIC_InitStructure;
  	NVIC_InitStructure.NVIC_IRQChannel = TIM1_UP_TIM10_IRQn;
- 	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;
- 	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
- 	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
  	NVIC_Init(&NVIC_InitStructure);
 
 	TIM_ITConfig(TIM10, TIM_IT_Update, ENABLE);

@@ -77,21 +77,24 @@ volatile int radio_size = 0;
 volatile int radio_write_ptr = 0;
 volatile int radio_read_ptr = 0;
 uint8_t radio_data;
+volatile int channel = 0;
+#define TOTAL_CHANNELS 4
+#define CONFIG_START 0x0800c000
 
 // RADIO_PACKETSIZE * 2
-// const uint8_t salt[] = 
-// {
-//     0xd0, 0xf1, 0x09, 0xa7, 0xcf, 0x89, 0x44, 0x40, 
-//     0xb1, 0x4c, 0x98, 0x41, 0xbc, 0xd7, 0xd1, 0x32,
-//     0x61, 0x8c, 0xcd, 0xa7
-// };
-// null for debugging
 const uint8_t salt[] = 
 {
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0x00
+    0xd0, 0xf1, 0x09, 0xa7, 0xcf, 0x89, 0x44, 0x40, 
+    0xb1, 0x4c, 0x98, 0x41, 0xbc, 0xd7, 0xd1, 0x32,
+    0x61, 0x8c, 0xcd, 0xa7
 };
+// null for debugging
+// const uint8_t salt[] = 
+// {
+//     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+//     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+//     0x00, 0x00, 0x00, 0x00
+// };
 
 
 // send codes for flash triggers
@@ -292,7 +295,8 @@ void main()
 	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOA |
 			RCC_AHB1Periph_GPIOC, 
 		ENABLE);
-    RCC_APB2PeriphClockCmd(RCC_APB2Periph_SYSCFG |
+    RCC_APB2PeriphClockCmd(RCC_APB2Periph_TIM1 |
+            RCC_APB2Periph_SYSCFG |
             RCC_APB2Periph_TIM10, 
         ENABLE);
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2 |
@@ -308,9 +312,18 @@ void main()
  	NVIC_SetVectorTable(NVIC_VectTab_FLASH, PROGRAM_START - 0x08000000);
     init_linux();
 	init_uart();
+
+    const uint32_t *buffer = (const uint32_t*)CONFIG_START;
+    channel = *buffer;
+    CLAMP(channel, 0, TOTAL_CHANNELS - 1);
+
     init_radio();
 
     print_text("\n\n\n\nWelcome to wireless ETTL\n");
+    print_text("channel=");
+    print_number(channel);
+    print_lf();
+
 #ifdef SIM_FLASH
     print_text("SIM_FLASH\n");
 #endif
@@ -327,6 +340,34 @@ void main()
     GPIO_InitStructure.GPIO_Pin = 1 << LED_PIN;
     GPIO_Init(LED_GPIO, &GPIO_InitStructure);
     SET_PIN(LED_GPIO, 1 << LED_PIN);
+
+// Button
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN;
+    GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP;
+    GPIO_InitStructure.GPIO_Pin = 1 << BUTTON_PIN;
+    GPIO_Init(BUTTON_GPIO, &GPIO_InitStructure);
+    NVIC_InitStructure.NVIC_IRQChannel = EXTI15_10_IRQn;
+ 	NVIC_Init(&NVIC_InitStructure);
+    SYSCFG_EXTILineConfig(EXTI_PortSourceGPIOC, BUTTON_PIN);
+
+    EXTI_InitTypeDef exti_config;
+    exti_config.EXTI_Line = 1 << BUTTON_PIN;
+    exti_config.EXTI_Mode = EXTI_Mode_Interrupt;
+    exti_config.EXTI_Trigger = EXTI_Trigger_Rising_Falling;
+    exti_config.EXTI_LineCmd = ENABLE;
+    EXTI_Init(&exti_config);
+
+// button timer runs at 4khz
+    TIM_DeInit(TIM1);
+    TIM_TimeBaseInitTypeDef  TIM_TimeBaseStructure;
+	TIM_TimeBaseStructInit(&TIM_TimeBaseStructure);
+	TIM_TimeBaseStructure.TIM_Period = 0xffff;
+// clockspeed / 4000 - 1
+	TIM_TimeBaseStructure.TIM_Prescaler = 41999;
+	TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
+	TIM_TimeBaseInit(TIM1, &TIM_TimeBaseStructure);
+    TIM1->CNT = 0;
+	TIM_Cmd(TIM1, ENABLE);
 
 // initialize the DAC
     DAC_DeInit();
@@ -369,10 +410,10 @@ void main()
 
 
 // measure time between bytes & create timeouts
-    TIM_TimeBaseInitTypeDef  TIM_TimeBaseStructure;
     TIM_DeInit(TIM2);
 	TIM_TimeBaseStructInit(&TIM_TimeBaseStructure);
 	TIM_TimeBaseStructure.TIM_Period = 0xffffffff;
+// clockspeed / 2000000 - 1
 	TIM_TimeBaseStructure.TIM_Prescaler = 83;
 	TIM_TimeBaseStructure.TIM_ClockDivision = 0;
 	TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
@@ -397,6 +438,7 @@ void main()
     SET_PIN(X_GPIO, 1 << X_PIN);
     CLEAR_PIN(ID_GPIO, 1 << ID_PIN);
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
+    GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
     GPIO_InitStructure.GPIO_Pin = (1 << X_PIN);
     GPIO_Init(X_GPIO, &GPIO_InitStructure);
     GPIO_InitStructure.GPIO_Pin = (1 << ID_PIN);
@@ -447,6 +489,7 @@ void main()
 	TIM_DeInit(TIM10);
 	TIM_TimeBaseStructInit(&TIM_TimeBaseStructure);
 	TIM_TimeBaseStructure.TIM_Period = BIT_TIMEOUT;
+// clockspeed / 2000000 - 1
 	TIM_TimeBaseStructure.TIM_Prescaler = 83;
 	TIM_TimeBaseStructure.TIM_ClockDivision = 0;
 	TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
@@ -531,3 +574,101 @@ void main()
 
 }
 
+
+// sleep for the button routines
+void msleep(int ms)
+{
+    TIM1->CNT = 0;
+    while(TIM1->CNT < ms * 4)
+    {
+    }
+}
+
+
+void blink_channel()
+{
+    
+    int i;
+    for(i = 0; i < channel + 1; i++)
+    {
+        SET_PIN(LED_GPIO, 1 << LED_PIN);
+        msleep(250);
+        CLEAR_PIN(LED_GPIO, 1 << LED_PIN);
+        msleep(250);
+    }
+    
+    msleep(500);
+}
+
+#define LONG_PRESS 1000
+#define SHORT_PRESS 5
+void EXTI15_10_IRQHandler()
+{
+// clear interrupt
+    EXTI->PR = 1 << BUTTON_PIN;
+
+    int prev_channel = channel;
+// handle the button in a private interrupt handler loop
+    int long_press = 0;
+// reset the timer
+    TIM1->CNT = 0;
+    CLEAR_PIN(LED_GPIO, 1 << LED_PIN);
+#ifdef SIM_CAM
+    USART_Cmd(USART1, DISABLE);
+#endif
+    while(!PIN_IS_SET(BUTTON_GPIO, 1 << BUTTON_PIN))
+    {
+// get time in ms
+        int time_difference = TIM1->CNT / 4;
+        if(time_difference >= LONG_PRESS)
+        {
+            if(!long_press)
+            {
+                long_press = 1;
+            }
+// advance the channel
+            channel++;
+            if(channel >= TOTAL_CHANNELS)
+                channel = 0;
+// blink the current channel
+            blink_channel();
+            TIM1->CNT = 0;
+        }
+    }
+    int time_difference = TIM1->CNT / 4;
+// blink the current channel
+    if(!long_press && time_difference >= SHORT_PRESS)
+    {
+        CLEAR_PIN(LED_GPIO, 1 << LED_PIN);
+        msleep(500);
+        blink_channel();
+    }
+    SET_PIN(LED_GPIO, 1 << LED_PIN);
+
+// save it
+    if(prev_channel != channel)
+    {
+	    FLASH_Unlock();
+	    FLASH_ClearFlag(FLASH_FLAG_EOP | 
+		    FLASH_FLAG_OPERR | 
+		    FLASH_FLAG_WRPERR | 
+    	    FLASH_FLAG_PGAERR | 
+		    FLASH_FLAG_PGPERR |
+		    FLASH_FLAG_PGSERR); 
+
+        FLASH_EraseSector(FLASH_Sector_3, VoltageRange_3);
+        FLASH_ProgramWord(CONFIG_START, channel);
+	    FLASH_Lock(); 
+
+        set_channel();
+    }
+
+
+#ifdef SIM_CAM
+    USART_Cmd(USART1, ENABLE);
+#endif
+//     print_text("EXTI15_10_IRQHandler ");
+//     print_number(PIN_IS_SET(BUTTON_GPIO, 1 << BUTTON_PIN));
+//     print_number(time_difference);
+//     print_lf();
+}

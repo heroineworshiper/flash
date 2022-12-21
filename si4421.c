@@ -37,7 +37,8 @@ int radio_state = RADIO_IDLE;
 // RADIO_BAUD_CODE = 10000 / (29 * kbps) / (1 + DRPE * 7) - 1
 // RADIO_DATA_SIZE is the amount of data to read before resetting the sync code
 
-#define RADIO_CHANNEL 96
+#define MIN_CHANNEL 96
+#define MAX_CHANNEL 3903
 
 // scan for synchronous code
 #define FIFORSTREG 0xCA81
@@ -209,7 +210,7 @@ void init_radio()
     write_spi(FIFORSTREG | 0x0002);
     write_spi(GENCREG);
     write_spi(AFCCREG);
-    write_spi(CFSREG(RADIO_CHANNEL));
+    set_channel();
     write_spi(DRVSREG);
     write_spi(PMCREG);
     write_spi(RXCREG);
@@ -241,6 +242,11 @@ void receiver_on()
     write_spi(PMCREG | 0x0080);
 }
 
+void set_channel()
+{
+    int channel2 = channel * (MAX_CHANNEL - MIN_CHANNEL) / 4 + MIN_CHANNEL;
+    write_spi(CFSREG(channel2));
+}
 
 
 

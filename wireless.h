@@ -30,11 +30,11 @@
 // if neither of these is enabled, it just captures the dialog
 // transmitter mode
 // Enable the simulated flash
-//#define SIM_FLASH
+#define SIM_FLASH
 
 // receiver mode
 // Enable the simulated camera
-#define SIM_CAM
+//#define SIM_CAM
 
 
 
@@ -49,12 +49,14 @@
 #define D_PIN 5
 #define CLK_PIN 4
 #define LED_PIN 14
+#define BUTTON_PIN 13
 
 #define D_GPIO GPIOA
 #define CLK_GPIO GPIOA
 #define X_GPIO GPIOC
 #define ID_GPIO GPIOC
 #define LED_GPIO GPIOC
+#define BUTTON_GPIO GPIOC
 
 #define RADIO_UART_GPIO GPIOA
 #define RADIO_RX_PIN 10
@@ -113,6 +115,7 @@ extern uint8_t radio_data;
 #define RADIO_RECEIVE 3
 extern int radio_state;
 
+extern volatile int channel;
 extern const uint8_t salt[RADIO_PACKETSIZE * 2];
 
 
@@ -228,6 +231,7 @@ extern const uint8_t* ref_packets[];
 void init_radio();
 void radio_off();
 void transmitter_on();
+void set_channel();
 
 void usleep(int us);
 void camera_loop();

@@ -41,29 +41,40 @@ flash_pot.s: the PIC firmware.  Requires gpasm to compile.
 
 ------------------------------------------------------------------------------
 
+Convert a wired Canon ETTL flash to wireless.
 
-Convert a wired Canon ETTL flash to wireless.  This required a 168Mhz
+A camera module emulates a flash connected to the camera.  A flash
+module emulates a camera connected to the flash.  This required a 168Mhz
 processor to bit bang fast enough, though the flash side might be doable
 with something slower.
 
-This requires stm32stuff to be in the parent directory.
+This requires stm32stuff to be in the parent directory.  Compile with
+make wireless.bin.  Install with ../stm32stuff/uart_programmer wireless.bin
+
+Tap the button to blink the current channel.  Hold the button to cycle
+through the channels.
+
+Enable SIM_CAM to compile the flash firmware.
+Enable SIM_FLASH to compile the camera firmware.
+
+Disable ENABLE_PRINT in the Makefile to increase robustness.
+
 
 enclosure2.FCStd: Freecad models of the enclosures.
     flash top, flash bottom: flash enclosure
     camera mid, camera bottom: camera enclosure
     camera top: be sure the support layer is the shortest path
 
-wireless.c, camera.c flash.c: STM32 firmware
+TODO: camera board should be sandwiched between the switches & hot
+shoe.  This emerged as a more convenient arrangement.
 
-wireless.h:
-    Enable SIM_CAM to compile the flash firmware.
-    Enable SIM_FLASH to compile the camera firmware.
+wireless.c, camera.c flash.c wireless.h: STM32 firmware
 
 bootload.c, bootloader.X: single wire bootloader for a failed PIC implementation
 
-wireless.pcb: failed PIC board
+wireless.pcb: failed PIC board that might work on the flash side
 
-wireless2.pcb: STM32 board
+wireless2.pcb: STM32 board that works on both sides
 
 wireless.X: failed PIC firmware
 

@@ -48,6 +48,7 @@ ARM_OBJS := \
 	../stm32stuff/stm32f4xx_dac.o \
 	../stm32stuff/stm32f4xx_dcmi.o \
 	../stm32stuff/stm32f4xx_dma.o \
+	../stm32stuff/stm32f4xx_exti.o \
 	../stm32stuff/stm32f4xx_i2c.o \
 	../stm32stuff/stm32f4xx_iwdg.o \
 	../stm32stuff/stm32f4xx_tim.o \
@@ -99,6 +100,7 @@ uart.o:             ../stm32stuff/uart.c
 ../stm32stuff/stm32f4xx_dac.o:   ../stm32stuff/stm32f4xx_dac.c
 ../stm32stuff/stm32f4xx_dcmi.o:   ../stm32stuff/stm32f4xx_dcmi.c
 ../stm32stuff/stm32f4xx_dma.o:    ../stm32stuff/stm32f4xx_dma.c
+../stm32stuff/stm32f4xx_exti.o:    ../stm32stuff/stm32f4xx_exti.c
 ../stm32stuff/stm32f4xx_i2c.o:    ../stm32stuff/stm32f4xx_i2c.c
 ../stm32stuff/stm32f4xx_iwdg.o:   ../stm32stuff/stm32f4xx_iwdg.c
 ../stm32stuff/stm32f4xx_tim.o:    ../stm32stuff/stm32f4xx_tim.c

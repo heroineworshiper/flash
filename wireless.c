@@ -51,8 +51,6 @@ int have_d2_sim = 0;
 int x_value = 0;
 int id_value = 0;
 int bit_counter = 0;
-// raise D1 after every byte
-int d1_sim_timeout = 0;
 // analog readouts
 int clk_raw = 0;
 int d1_raw = 0;
@@ -77,7 +75,7 @@ volatile int radio_size = 0;
 volatile int radio_write_ptr = 0;
 volatile int radio_read_ptr = 0;
 uint8_t radio_data;
-volatile int channel = 0;
+volatile uint8_t channel = 0;
 #define TOTAL_CHANNELS 4
 #define CONFIG_START 0x0800c000
 
@@ -657,7 +655,8 @@ void EXTI15_10_IRQHandler()
 		    FLASH_FLAG_PGSERR); 
 
         FLASH_EraseSector(FLASH_Sector_3, VoltageRange_3);
-        FLASH_ProgramWord(CONFIG_START, channel);
+        uint32_t channel2 = channel;
+        FLASH_ProgramWord(CONFIG_START, channel2);
 	    FLASH_Lock(); 
 
         set_channel();

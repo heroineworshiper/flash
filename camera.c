@@ -55,6 +55,13 @@ int debug_offset = 0;
 uint8_t packet_id = 0xff;
 // time between the last packet & 1st byte of the current packet
 int packet_time = 0;
+// delay D1 after every byte for flow control
+int d1_delay;
+// keep D1 on the last bit for this long
+#define D1_HIGH_DELAY 10
+// keep D1 low for this long to signify busy
+//#define D1_BUSY_DELAY 20
+#define D1_BUSY_DELAY 20
 
 #ifdef SIM_FLASH
 
@@ -404,6 +411,7 @@ void process_byte()
 #endif
             if(packet_type == TYPE_MANE_FLASH1)
             {
+// delay the mane flash for a vintage flash
                 print_text("POWER=");
                 print_hex2(toflash_data[15]);
                 print_lf();
@@ -536,7 +544,7 @@ void camera_loop()
 
 #ifdef SIM_FLASH
 // set up flow control
-                    d1_sim_timeout = D1_SIM_TIMEOUT;
+                    d1_delay = D1_HIGH_DELAY + D1_BUSY_DELAY;
 #endif
                 }
                 else
@@ -552,16 +560,16 @@ void camera_loop()
 
 #ifdef SIM_FLASH
 // flow control
-            if(d1_sim_timeout > 0)
+            if(d1_delay > 0)
             {
-                d1_sim_timeout--;
-    // must lower a 1 bit for a while
-                if(d1_sim_timeout == D1_SIM_TIMEOUT - 10)
+                d1_delay--;
+// lower D1 for a while to signify busy
+                if(d1_delay == D1_BUSY_DELAY)
                 {
                     CLEAR_D
                 }
-    // must raise it after a certain amount of time to signify idle
-                if(d1_sim_timeout == 0)
+// raise it after a certain amount of time to signify idle
+                if(d1_delay == 0)
                 {
                     SET_D
                 }

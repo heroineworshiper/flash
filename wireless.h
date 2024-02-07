@@ -22,6 +22,9 @@
 #define WIRELESS_H
 
 
+#include <stdint.h>
+#include "si4421.h"
+
 // print the clock waveform before a timeout
 // #define DEBUG_TIMEOUT
 // print raw bytes instead of packets
@@ -30,11 +33,11 @@
 // if neither of these is enabled, it just captures the dialog
 // transmitter mode
 // Enable the simulated flash
-#define SIM_FLASH
+//#define SIM_FLASH
 
 // receiver mode
 // Enable the simulated camera
-//#define SIM_CAM
+#define SIM_CAM
 
 
 
@@ -62,8 +65,6 @@
 #define RADIO_RX_PIN 10
 #define RADIO_TX_PIN 9
 
-#include <stdint.h>
-
 // parsed data
 // captured byte from flash
 extern uint8_t d1_value;
@@ -77,9 +78,6 @@ extern int have_d2_sim;
 extern int x_value;
 extern int id_value;
 extern int bit_counter;
-// raise D1 after every byte for flow control
-extern int d1_sim_timeout;
-#define D1_SIM_TIMEOUT 30
 // analog readouts
 extern int clk_raw;
 extern int d1_raw;
@@ -97,7 +95,13 @@ extern int byte_counter;
 extern uint8_t packet_id;
 
 // radio bits
-#define RADIO_PACKETSIZE 10
+#define RADIO_IDLE 0
+#define RADIO_WARMUP 1
+#define RADIO_TRANSMIT 2
+#define RADIO_RECEIVE 3
+extern uint8_t radio_state;
+extern volatile uint8_t channel;
+
 // unencoded packet
 extern uint8_t radio_packet[RADIO_PACKETSIZE * 2];
 
@@ -109,14 +113,7 @@ extern volatile int radio_size;
 extern volatile int radio_write_ptr;
 extern volatile int radio_read_ptr;
 extern uint8_t radio_data;
-#define RADIO_IDLE 0
-#define RADIO_WARMUP 1
-#define RADIO_TRANSMIT 2
-#define RADIO_RECEIVE 3
-extern int radio_state;
 
-extern volatile int channel;
-extern const uint8_t salt[RADIO_PACKETSIZE * 2];
 
 
 // send codes for flash triggers
@@ -125,10 +122,7 @@ extern const uint8_t salt[RADIO_PACKETSIZE * 2];
 #define TRIGGER_FLASH 2
 extern int trigger_state;
 #define TRIGGER_CODE_NONE 0
-#define TRIGGER_CODE_CLK 0xaa // CLK 0V
-#define TRIGGER_CODE_X 0x55 // CLK & X 0V
 extern uint8_t trigger_code;
-#define TRIGGER_DEBOUNCE 2
 
 
 // faster transition than setting the DAC
@@ -207,18 +201,7 @@ extern const uint8_t metering1_vars[];
 extern const uint8_t preflash1_vars[];
 extern const uint8_t maneflash1_vars[];
 extern const uint8_t maneflash2_vars[];
-
 // type of packet captured
-#define TYPE_NONE 0
-#define TYPE_POWERON 1
-#define TYPE_METERING1 2
-#define TYPE_METERING2 3
-#define TYPE_PREFLASH1 4
-#define TYPE_PREFLASH2 5
-#define TYPE_MANE_FLASH1 6
-#define TYPE_MANE_FLASH2 7
-#define TYPE_FAST_FLASH 8
-#define TYPE_MANUAL_FLASH 9
 extern int packet_type;
 
 // number of times to repeat each packet

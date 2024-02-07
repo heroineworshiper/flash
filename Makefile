@@ -12,8 +12,12 @@ ARM_CFLAGS := \
 	-mlittle-endian \
 	-ffreestanding \
 	-I. \
-	-I../stm32stuff \
-        -DENABLE_PRINT
+	-I../stm32stuff
+
+
+#ARM_CFLAGS += -DENABLE_PRINT
+
+
 ARM_LIBM := $(shell $(GCC_ARM) $(ARM_CFLAGS) -print-file-name=libm.a)
 ARM_LIBC := $(shell $(GCC_ARM) $(ARM_CFLAGS) -print-libgcc-file-name)
 ARM_LFLAGS := -mcpu=cortex-m4 \
@@ -26,6 +30,31 @@ ARM_LFLAGS := -mcpu=cortex-m4 \
 	-nostdlib \
 	-nostdinc \
 	$(ARM_LIBM) $(ARM_LIBC)
+
+
+AVR_DIR := /root/arduino-1.8.15/hardware/tools/avr/bin/
+AVR_GCC := $(AVR_DIR)avr-gcc
+AVR_OBJCOPY := $(AVR_DIR)avr-objcopy -j .text -j .data -O ihex
+AVR_DUDE := avrdude -v -patmega328p -cstk500v1 -P/dev/ttyACM1 -b19200
+AVR_CFLAGS := -O2 -mmcu=atmega328p
+AVR_LFLAGS := -O2 -mmcu=atmega328p -Wl,--section-start=.text=0x0000 -nostdlib
+
+
+manual_to_ttl.hex: manual_to_ttl.c si4421.h
+	$(AVR_GCC) $(AVR_CFLAGS) -o manual_to_ttl.o manual_to_ttl.c
+	$(AVR_GCC) $(AVR_LFLAGS) -o manual_to_ttl.elf manual_to_ttl.o
+	$(AVR_OBJCOPY) manual_to_ttl.elf manual_to_ttl.hex
+
+# program atmega328 fuse.  page 283
+# brownout is failing high for some reason
+flash_fuse:
+	$(AVR_DUDE) -e -Ulock:w:0x3F:m -Uefuse:w:0x06:m -Uhfuse:w:0xD3:m -Ulfuse:w:0xE2:m 
+      
+
+flash_isp: manual_to_ttl.hex
+	$(AVR_DUDE) -Uflash:w:manual_to_ttl.hex:i -Ulock:w:0x0F:m
+
+
 
 
 

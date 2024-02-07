@@ -85,7 +85,7 @@ int wait_trigger(uint8_t code)
 
 void get_packet()
 {
-    radio_packet[rx_counter] = radio_data ^ salt[rx_counter % sizeof(salt)];
+    radio_packet[rx_counter] = radio_data ^ salt[rx_counter];
     rx_counter++;
     if(rx_counter >= RADIO_PACKETSIZE * 2)
     {
@@ -258,10 +258,14 @@ void get_packet()
 // handle triggers
             if(packet_type == TYPE_PREFLASH2)
             {
+// turn off ID pin to turn off focusing aid on the GODOX
+                CLEAR_PIN(ID_GPIO, 1 << ID_PIN);
+
 // CLK only
 // CLK must be in GPIO mode/3V
                 if(!wait_trigger(TRIGGER_CODE_CLK))
                 {
+
                     CLEAR_PIN(CLK_GPIO, 1 << CLK_PIN);
                     usleep(5000);
                     SET_PIN(CLK_GPIO, 1 << CLK_PIN);
@@ -273,8 +277,11 @@ void get_packet()
                 packet_type == TYPE_FAST_FLASH ||
                 packet_type == TYPE_MANUAL_FLASH)
             {
+// turn off ID pin to turn off focusing aid on the GODOX
+                CLEAR_PIN(ID_GPIO, 1 << ID_PIN);
                 if(!wait_trigger(TRIGGER_CODE_CLK))
                 {
+
 // CLK
 // CLK must be in GPIO mode/3V
                     CLEAR_PIN(CLK_GPIO, 1 << CLK_PIN);

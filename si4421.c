@@ -25,68 +25,12 @@
 #include "stm32f4xx_tim.h"
 #include "misc.h"
 #include "uart.h"
+#include "si4421.h"
 
 // Si4421 radio bits
 
 
-int radio_state = RADIO_IDLE;
-
-// RADIO_CHANNEL is from 96-3903 & set by the user
-// data rate must be slow enough to service FIFOs
-// kbps = 10000 / (29 * (DRVSREG<6:0> + 1) * (1 + DRPE * 7))
-// RADIO_BAUD_CODE = 10000 / (29 * kbps) / (1 + DRPE * 7) - 1
-// RADIO_DATA_SIZE is the amount of data to read before resetting the sync code
-
-#define MIN_CHANNEL 96
-#define MAX_CHANNEL 3903
-
-// scan for synchronous code
-#define FIFORSTREG 0xCA81
-// read continuously
-//#define FIFORSTREG              (0xCA81 | 0x0004)
-// 915MHz
-#define FREQ_BAND 0x0030
-// Center Frequency: 915.000MHz
-//#define CFSREG (0xA000 | RADIO_CHANNEL)
-#define CFSREG(chan) (0xA000 | (chan))
-// crystal load 10pF
-#define XTAL_LD_CAP 0x0003
-// power management page 16
-#define PMCREG 0x8201
-#define GENCREG (0x8000 | XTAL_LD_CAP | FREQ_BAND)
-
-
-// +3/-4 Fres
-//#define AFCCREG 0xc4f7
-// +15/-16 Fres
-#define AFCCREG 0xc4d7
-
-// Data Rate
-// data rate must be slow enough to service FIFOs
-// kbps = 10000 / (29 * (DRVSREG<6:0> + 1) * (1 + DRPE * 7))
-// RADIO_BAUD_CODE = 10000 / (29 * kbps) - 1
-#define RADIO_BAUD_CODE 3
-
-// data rate prescaler.  Divides data rate by 8 if 1
-//#define DRPE (1 << 7)
-#define DRPE 0
-#define DRVSREG (0xC600 | DRPE | RADIO_BAUD_CODE)
-
-
-// Page 37 of the SI4421 datasheet gives optimum bandwidth values
-// but the lowest that works is 200khz
-//#define RXCREG 0x9481     // BW 200KHz, LNA gain 0dB, RSSI -97dBm
-//#define RXCREG 0x9440     // BW 340KHz, LNA gain 0dB, RSSI -103dBm
-#define RXCREG 0x9420       // BW 400KHz, LNA gain 0dB, RSSI -103dBm
-
-//#define TXCREG 0x9850     // FSK shift: 90kHz
-#define TXCREG 0x98f0       // FSK shift: 165kHz
-#define STSREG 0x0000
-#define RXFIFOREG 0xb000
-
-// analog filter for raw mode
-#define BBFCREG                 0xc23c
-
+uint8_t radio_state = RADIO_IDLE;
 
 #define RADIO_CS_GPIO GPIOA
 #define RADIO_CS_PIN GPIO_Pin_11

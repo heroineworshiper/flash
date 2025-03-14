@@ -1,6 +1,6 @@
 /*
  * MANUAL TO ETTL FLASH CONVERSION
- * Copyright (C) 2023 Adam Williams <broadcast at earthling dot net>
+ * Copyright (C) 2023-2025 Adam Williams <broadcast at earthling dot net>
  * 
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,7 +19,7 @@
  */
 
 // Runs on an atmega328 to convert a manual flash to ETTL.
-// Connects to the 6V, GND, resistor, & X of the flash.
+// Connects to the 6V, GND, trigger, & power of the flash.
 // Receives commands from an ETTL to wireless transmitter wireless.bin.
 // The radios can be replaced with a software FIFO to go directly from an ETTL
 // hotshoe, but the transmitter side requires a much faster microcontroller.  
@@ -96,16 +96,20 @@ const uint8_t salt[] =
 #define EXPOSURE_MIN -3
 #define EXPOSURE_MAX 3
 // user settings
-uint8_t channel = 0;
-// number of stops
-int8_t exposure_value = 0;
+uint8_t channel = 1;
+// number of stops.  Experimentally determined by testing
+// multiple apertures & ISOs
+int8_t exposure_value = 2;
 // 0-MAX_POWER
 uint8_t manual_power = 0;
-// 3 modes to avoid recycling in time
-#define NO_TTL 0
-#define TTL_PREFLASH 1
-#define TTL_MANEFLASH 2
+// 3 modes to work around slow recycling
+#define NO_TTL 0 // manual mode
+#define TTL_PREFLASH 1 // fire only preflash
+#define TTL_MANEFLASH 2 // fire only mane flash using the previous preflash
+// fire the preflash & the mane flash in time
+#define TTL_FULL 3
 uint8_t ttl_mode = TTL_PREFLASH;
+//uint8_t ttl_mode = TTL_FULL;
 
 #define RADIO_CS_GPIO PORTD
 #define RADIO_CS_DDR DDRD
@@ -121,11 +125,16 @@ uint8_t ttl_mode = TTL_PREFLASH;
 #define LED_GPIO PORTC
 #define LED_PIN 5
 #define LED_DDR DDRC
+#define LED2_GPIO PORTB
+#define LED2_PIN 2
+#define LED2_DDR DDRB
 
+// SCR gate
 #define X_PORT PORTC
 #define X_PIN 1
 #define X_DDR DDRC
 
+// quench high voltage
 #define POWER_PORT PORTC
 #define POWER_PIN 2
 #define POWER_DDR DDRC
@@ -166,7 +175,7 @@ uint16_t button_tick;
 #define LED_TIMEOUT HZ
 uint8_t led_tick = 0;
 
-// us values from lowest to highest power, 1 stop per entry
+// uS values from lowest to highest power, 1 stop per entry
 const int16_t delay_values[] = 
 {
     0, 24, 32, 50, 70, 100, 170, 300
@@ -382,301 +391,301 @@ ISR(USART_RX_vect)
 
 
 
-void load_settings()
-{
-// EEPROM address
-    EEARH = 0;
-    EEARL = 0;
-// read command
-    bitSet(EECR, EERE);
-    channel = EEDR;
+// void load_settings()
+// {
+// // EEPROM address
+//     EEARH = 0;
+//     EEARL = 0;
+// // read command
+//     bitSet(EECR, EERE);
+//     channel = EEDR;
+// 
+//     EEARL = 1;
+//     bitSet(EECR, EERE);
+//     exposure_value = EEDR;
+// 
+//     EEARL = 2;
+//     bitSet(EECR, EERE);
+//     manual_power = EEDR;
+// 
+//     EEARL = 3;
+//     bitSet(EECR, EERE);
+//     ttl_mode = EEDR;
+//     switch(ttl_mode) 
+//     {
+//         case NO_TTL:
+//         case TTL_PREFLASH:
+//             break;
+//     
+//         case TTL_MANEFLASH:
+//             ttl_mode = TTL_PREFLASH;
+//             break;
+//     
+//         default:
+//             ttl_mode = TTL_PREFLASH;
+//     }
+//     
+//     CLAMP(channel, 0, TOTAL_CHANNELS - 1);
+//     CLAMP(exposure_value, EXPOSURE_MIN, EXPOSURE_MAX);
+//     CLAMP(manual_power, 0, MAX_POWER);
+// }
+// 
+// void write_eeprom()
+// {
+// // master write enable
+//     bitSet(EECR, EEMPE);
+// // write enable
+//     bitSet(EECR, EEPE);
+// // wait for it
+//     while(bitRead(EECR, EEPE))
+//     {
+//     }
+// }
+// 
+// void save_settings()
+// {
+// // EEPROM address
+//     EEARH = 0;
+//     EEARL = 0;
+// // data
+//     EEDR = channel;
+//     write_eeprom();
+// 
+//     EEARL = 1;
+// // data
+//     EEDR = exposure_value;
+//     write_eeprom();
+// 
+//     EEARL = 2;
+// // data
+//     EEDR = manual_power;
+//     write_eeprom();
+// 
+//     EEARL = 3;
+// // data
+//     EEDR = ttl_mode;
+//     write_eeprom();
+// }
 
-    EEARL = 1;
-    bitSet(EECR, EERE);
-    exposure_value = EEDR;
-
-    EEARL = 2;
-    bitSet(EECR, EERE);
-    manual_power = EEDR;
-
-    EEARL = 3;
-    bitSet(EECR, EERE);
-    ttl_mode = EEDR;
-    switch(ttl_mode) 
-    {
-        case NO_TTL:
-        case TTL_PREFLASH:
-            break;
-    
-        case TTL_MANEFLASH:
-            ttl_mode = TTL_PREFLASH;
-            break;
-    
-        default:
-            ttl_mode = TTL_PREFLASH;
-    }
-    
-    CLAMP(channel, 0, TOTAL_CHANNELS - 1);
-    CLAMP(exposure_value, EXPOSURE_MIN, EXPOSURE_MAX);
-    CLAMP(manual_power, 0, MAX_POWER);
-}
-
-void write_eeprom()
-{
-// master write enable
-    bitSet(EECR, EEMPE);
-// write enable
-    bitSet(EECR, EEPE);
-// wait for it
-    while(bitRead(EECR, EEPE))
-    {
-    }
-}
-
-void save_settings()
-{
-// EEPROM address
-    EEARH = 0;
-    EEARL = 0;
-// data
-    EEDR = channel;
-    write_eeprom();
-
-    EEARL = 1;
-// data
-    EEDR = exposure_value;
-    write_eeprom();
-
-    EEARL = 2;
-// data
-    EEDR = manual_power;
-    write_eeprom();
-
-    EEARL = 3;
-// data
-    EEDR = ttl_mode;
-    write_eeprom();
-}
-
-void draw_screen()
-{
-// enable SPI. page 167
-    SPCR = 0b01110100;
-// double speed. page 168
-    SPSR = 0b00000001;
-
-// active high CS
-    bitSet(LCD_CS_GPIO, LCD_CS_PIN);
-    SPDR = WRITECMD | vcom;
-	if(vcom)
-        vcom = 0;
-    else
-    	vcom = VCOM;
-
-    uint8_t mode_x = MANUAL_X;
-    uint8_t digit1_x = 0xff;
-    uint8_t digit2_x = 0xff;
-    if(ttl_mode) 
-    {
-        if(ttl_mode == TTL_PREFLASH)
-            mode_x = TTLPRE_X;
-        else
-            mode_x = TTLMANE_X;
-        if(exposure_value > 0) 
-        {
-            digit1_x = PLUS_X;
-            digit2_x = DIGIT_X + exposure_value * 8;
-        }
-        else
-        if(exposure_value < 0)
-        {
-            digit1_x = MINUS_X;
-            digit2_x = DIGIT_X - exposure_value * 8;
-        }
-        else
-            digit2_x = DIGIT_X;
-    }
-    else
-    {
-        if(manual_power > 9)
-            digit1_x = DIGIT_X + (manual_power - 9) * 8;
-        digit2_x = DIGIT_X + (manual_power % 10) * 8;
-    }
-
-    uint8_t i, j;
-#define FLUSH_PIXEL \
-    value >>= 1; \
-    if(!pixel) value |= 0x80; \
-    if(!(j % 8)) \
-    { \
-        WAIT_SPI \
-        SPDR = value; \
-        value = 0xff; \
-    }
-
-    for(i = 0; i < HEIGHT; i++)
-    {
-// address of current line
-        WAIT_SPI
-        SPDR = i + 1;
-        uint8_t value = 0xff;
-
-        if(i >= C_Y && 
-            i < C_Y + QUAD_H)
-        {
-            for(j = 1; j < BUTTON_X - 1; j++)
-            {
-                uint8_t pixel = 0;
-                if(j >= CURRENT_CHAN_X && j < CURRENT_CHAN_X + QUAD_W)
-                {
-                    uint8_t in_byte = lcd_data[(i / 4) * (PPM_W / 8) + (DIGIT_X / 8) + channel + 1];
-                    uint8_t in_bit = (j - CURRENT_CHAN_X) / 4;
-                    pixel = in_byte & (1 << in_bit);
-                }
-                FLUSH_PIXEL
-            }
-        }
-        else
-        if(i >= M_Y && 
-            i < M_Y + QUAD_H)
-        {
-            for(j = 1; j < BUTTON_X - 1; j++)
-            {
-                uint8_t pixel = 0;
-                if(j >= CURRENT_MODE_X && j < CURRENT_MODE_X + QUAD_W * MODE_CHARS)
-                {
-                    uint8_t character = (j - CURRENT_MODE_X) / QUAD_W;
-                    uint8_t in_byte = lcd_data[((i - M_Y) / 4) * (PPM_W / 8) + (mode_x / 8) + character];
-                    uint8_t in_bit = ((j - CURRENT_MODE_X) / 4) % 8;
-                    pixel = in_byte & (1 << in_bit);
-                }
-                FLUSH_PIXEL
-            }
-        }
-        else
-        if(i >= USED_Y && i < USED_Y + QUAD_H && power_used != 0xff)
-        {
-// power used
-            for(j = 1; j < USED_X; j++)
-            {
-                uint8_t pixel = 0;
-                FLUSH_PIXEL
-            }
-            uint8_t in_byte = lcd_data[((i - USED_Y) / 4) * (PPM_W / 8) + 
-                (LPARENTH_X / 8)];
-            for( ; j < USED_X + QUAD_W; j++)
-            {
-                uint8_t in_bit = (j - USED_X) / 4;
-                uint8_t pixel = in_byte & (1 << in_bit);
-                FLUSH_PIXEL
-            }
-            in_byte = lcd_data[((i - USED_Y) / 4) * (PPM_W / 8) + 
-                (DIGIT_X / 8) + power_used];
-            for( ; j < USED_X + QUAD_W * 2; j++)
-            {
-                uint8_t in_bit = (j - USED_X - QUAD_W) / 4;
-                uint8_t pixel = in_byte & (1 << in_bit);
-                FLUSH_PIXEL
-            }
-            in_byte = lcd_data[((i - USED_Y) / 4) * (PPM_W / 8) + 
-                (RPARENTH_X / 8)];
-            for( ; j < USED_X + QUAD_W * 3; j++)
-            {
-                uint8_t in_bit = (j - USED_X - QUAD_W * 2) / 4;
-                uint8_t pixel = in_byte & (1 << in_bit);
-                FLUSH_PIXEL
-            }
-            for( ; j < BUTTON_X - 1; j++)
-            {
-                uint8_t pixel = 0;
-                FLUSH_PIXEL
-            }
-        }
-        else
-        if(i >= DIGIT1_Y && i < DIGIT1_Y + OCTO_H)
-        {
-            for(j = 1; j < BUTTON_X - 1; j++)
-            {
-                uint8_t pixel = 0;
-                if(digit1_x != 0xff && j >= DIGIT1_X && j < DIGIT1_X + OCTO_W)
-                {
-// digit 1
-                    uint8_t in_byte = lcd_data[((i - DIGIT1_Y) / 8) * (PPM_W / 8) + (digit1_x / 8)];
-                    uint8_t in_bit = (j - DIGIT1_X) / 8;
-                    pixel = in_byte & (1 << in_bit);
-                    
-                }
-                else
-                if(j >= DIGIT2_X && j < DIGIT2_X + OCTO_W)
-                {
-// digit 2
-                    uint8_t in_byte = lcd_data[((i - DIGIT1_Y) / 8) * (PPM_W / 8) + (digit2_x / 8)];
-                    uint8_t in_bit = (j - DIGIT2_X) / 8;
-                    pixel = in_byte & (1 << in_bit);
-                }
-                FLUSH_PIXEL
-            }
-        }
-        else
-        {
-            for(j = 1; j < BUTTON_X - 1; j++)
-            {
-                uint8_t pixel = 0;
-                FLUSH_PIXEL
-            }
-        }
-
-// vertical line.  Assume not on an 8 pixel boundary
-        value >>= 1;
-        j++;
-
-// button column
-        for( ; j < WIDTH; j++)
-        {
-            uint8_t pixel = 0;
-            uint8_t in_byte;
-// button keys are 4x size
-            if(i >= C_Y && i < C_Y + QUAD_H)
-            {
-                in_byte = lcd_data[((i - C_Y) / 4) * (PPM_W / 8) + (CHAN_X / 8)];
-            }
-            else
-            if(i >= M_Y && i < M_Y + QUAD_H)
-            {
-                in_byte = lcd_data[((i - M_Y) / 4) * (PPM_W / 8) + (MANUAL_X / 8)];
-            }
-            else
-            if(i >= PLUS_Y && i < PLUS_Y + QUAD_H)
-            {
-                in_byte = lcd_data[((i - PLUS_Y) / 4) * (PPM_W / 8) + (PLUS_X / 8)];
-            } 
-            else
-            if(i >= MINUS_Y && i < MINUS_Y + QUAD_H)
-            {
-                in_byte = lcd_data[((i - MINUS_Y) / 4) * (PPM_W / 8) + (MINUS_X / 8)];
-            } 
-            uint8_t in_bit = (j - BUTTON_X) / 4;
-            pixel = in_byte & (1 << in_bit);
-
-            FLUSH_PIXEL
-        }
-
-// skip last pixel
-        value >>= 1;
-        WAIT_SPI
-        SPDR = value;
-
-// end of line code
-        WAIT_SPI
-        SPDR = 0;
-    }
-
-// end of frame
-    WAIT_SPI
-    SPDR = 0;
-    WAIT_SPI
-    bitClear(LCD_CS_GPIO, LCD_CS_PIN);
-}
+// void draw_screen()
+// {
+// // enable SPI. page 167
+//     SPCR = 0b01110100;
+// // double speed. page 168
+//     SPSR = 0b00000001;
+// 
+// // active high CS
+//     bitSet(LCD_CS_GPIO, LCD_CS_PIN);
+//     SPDR = WRITECMD | vcom;
+// 	if(vcom)
+//         vcom = 0;
+//     else
+//     	vcom = VCOM;
+// 
+//     uint8_t mode_x = MANUAL_X;
+//     uint8_t digit1_x = 0xff;
+//     uint8_t digit2_x = 0xff;
+//     if(ttl_mode) 
+//     {
+//         if(ttl_mode == TTL_PREFLASH || ttl_mode == TTL_FULL)
+//             mode_x = TTLPRE_X;
+//         else
+//             mode_x = TTLMANE_X;
+//         if(exposure_value > 0) 
+//         {
+//             digit1_x = PLUS_X;
+//             digit2_x = DIGIT_X + exposure_value * 8;
+//         }
+//         else
+//         if(exposure_value < 0)
+//         {
+//             digit1_x = MINUS_X;
+//             digit2_x = DIGIT_X - exposure_value * 8;
+//         }
+//         else
+//             digit2_x = DIGIT_X;
+//     }
+//     else
+//     {
+//         if(manual_power > 9)
+//             digit1_x = DIGIT_X + (manual_power - 9) * 8;
+//         digit2_x = DIGIT_X + (manual_power % 10) * 8;
+//     }
+// 
+//     uint8_t i, j;
+// #define FLUSH_PIXEL \
+//     value >>= 1; \
+//     if(!pixel) value |= 0x80; \
+//     if(!(j % 8)) \
+//     { \
+//         WAIT_SPI \
+//         SPDR = value; \
+//         value = 0xff; \
+//     }
+// 
+//     for(i = 0; i < HEIGHT; i++)
+//     {
+// // address of current line
+//         WAIT_SPI
+//         SPDR = i + 1;
+//         uint8_t value = 0xff;
+// 
+//         if(i >= C_Y && 
+//             i < C_Y + QUAD_H)
+//         {
+//             for(j = 1; j < BUTTON_X - 1; j++)
+//             {
+//                 uint8_t pixel = 0;
+//                 if(j >= CURRENT_CHAN_X && j < CURRENT_CHAN_X + QUAD_W)
+//                 {
+//                     uint8_t in_byte = lcd_data[(i / 4) * (PPM_W / 8) + (DIGIT_X / 8) + channel + 1];
+//                     uint8_t in_bit = (j - CURRENT_CHAN_X) / 4;
+//                     pixel = in_byte & (1 << in_bit);
+//                 }
+//                 FLUSH_PIXEL
+//             }
+//         }
+//         else
+//         if(i >= M_Y && 
+//             i < M_Y + QUAD_H)
+//         {
+//             for(j = 1; j < BUTTON_X - 1; j++)
+//             {
+//                 uint8_t pixel = 0;
+//                 if(j >= CURRENT_MODE_X && j < CURRENT_MODE_X + QUAD_W * MODE_CHARS)
+//                 {
+//                     uint8_t character = (j - CURRENT_MODE_X) / QUAD_W;
+//                     uint8_t in_byte = lcd_data[((i - M_Y) / 4) * (PPM_W / 8) + (mode_x / 8) + character];
+//                     uint8_t in_bit = ((j - CURRENT_MODE_X) / 4) % 8;
+//                     pixel = in_byte & (1 << in_bit);
+//                 }
+//                 FLUSH_PIXEL
+//             }
+//         }
+//         else
+//         if(i >= USED_Y && i < USED_Y + QUAD_H && power_used != 0xff)
+//         {
+// // power used
+//             for(j = 1; j < USED_X; j++)
+//             {
+//                 uint8_t pixel = 0;
+//                 FLUSH_PIXEL
+//             }
+//             uint8_t in_byte = lcd_data[((i - USED_Y) / 4) * (PPM_W / 8) + 
+//                 (LPARENTH_X / 8)];
+//             for( ; j < USED_X + QUAD_W; j++)
+//             {
+//                 uint8_t in_bit = (j - USED_X) / 4;
+//                 uint8_t pixel = in_byte & (1 << in_bit);
+//                 FLUSH_PIXEL
+//             }
+//             in_byte = lcd_data[((i - USED_Y) / 4) * (PPM_W / 8) + 
+//                 (DIGIT_X / 8) + power_used];
+//             for( ; j < USED_X + QUAD_W * 2; j++)
+//             {
+//                 uint8_t in_bit = (j - USED_X - QUAD_W) / 4;
+//                 uint8_t pixel = in_byte & (1 << in_bit);
+//                 FLUSH_PIXEL
+//             }
+//             in_byte = lcd_data[((i - USED_Y) / 4) * (PPM_W / 8) + 
+//                 (RPARENTH_X / 8)];
+//             for( ; j < USED_X + QUAD_W * 3; j++)
+//             {
+//                 uint8_t in_bit = (j - USED_X - QUAD_W * 2) / 4;
+//                 uint8_t pixel = in_byte & (1 << in_bit);
+//                 FLUSH_PIXEL
+//             }
+//             for( ; j < BUTTON_X - 1; j++)
+//             {
+//                 uint8_t pixel = 0;
+//                 FLUSH_PIXEL
+//             }
+//         }
+//         else
+//         if(i >= DIGIT1_Y && i < DIGIT1_Y + OCTO_H)
+//         {
+//             for(j = 1; j < BUTTON_X - 1; j++)
+//             {
+//                 uint8_t pixel = 0;
+//                 if(digit1_x != 0xff && j >= DIGIT1_X && j < DIGIT1_X + OCTO_W)
+//                 {
+// // digit 1
+//                     uint8_t in_byte = lcd_data[((i - DIGIT1_Y) / 8) * (PPM_W / 8) + (digit1_x / 8)];
+//                     uint8_t in_bit = (j - DIGIT1_X) / 8;
+//                     pixel = in_byte & (1 << in_bit);
+//                     
+//                 }
+//                 else
+//                 if(j >= DIGIT2_X && j < DIGIT2_X + OCTO_W)
+//                 {
+// // digit 2
+//                     uint8_t in_byte = lcd_data[((i - DIGIT1_Y) / 8) * (PPM_W / 8) + (digit2_x / 8)];
+//                     uint8_t in_bit = (j - DIGIT2_X) / 8;
+//                     pixel = in_byte & (1 << in_bit);
+//                 }
+//                 FLUSH_PIXEL
+//             }
+//         }
+//         else
+//         {
+//             for(j = 1; j < BUTTON_X - 1; j++)
+//             {
+//                 uint8_t pixel = 0;
+//                 FLUSH_PIXEL
+//             }
+//         }
+// 
+// // vertical line.  Assume not on an 8 pixel boundary
+//         value >>= 1;
+//         j++;
+// 
+// // button column
+//         for( ; j < WIDTH; j++)
+//         {
+//             uint8_t pixel = 0;
+//             uint8_t in_byte;
+// // button keys are 4x size
+//             if(i >= C_Y && i < C_Y + QUAD_H)
+//             {
+//                 in_byte = lcd_data[((i - C_Y) / 4) * (PPM_W / 8) + (CHAN_X / 8)];
+//             }
+//             else
+//             if(i >= M_Y && i < M_Y + QUAD_H)
+//             {
+//                 in_byte = lcd_data[((i - M_Y) / 4) * (PPM_W / 8) + (MANUAL_X / 8)];
+//             }
+//             else
+//             if(i >= PLUS_Y && i < PLUS_Y + QUAD_H)
+//             {
+//                 in_byte = lcd_data[((i - PLUS_Y) / 4) * (PPM_W / 8) + (PLUS_X / 8)];
+//             } 
+//             else
+//             if(i >= MINUS_Y && i < MINUS_Y + QUAD_H)
+//             {
+//                 in_byte = lcd_data[((i - MINUS_Y) / 4) * (PPM_W / 8) + (MINUS_X / 8)];
+//             } 
+//             uint8_t in_bit = (j - BUTTON_X) / 4;
+//             pixel = in_byte & (1 << in_bit);
+// 
+//             FLUSH_PIXEL
+//         }
+// 
+// // skip last pixel
+//         value >>= 1;
+//         WAIT_SPI
+//         SPDR = value;
+// 
+// // end of line code
+//         WAIT_SPI
+//         SPDR = 0;
+//     }
+// 
+// // end of frame
+//     WAIT_SPI
+//     SPDR = 0;
+//     WAIT_SPI
+//     bitClear(LCD_CS_GPIO, LCD_CS_PIN);
+// }
 
 uint8_t wait_trigger(uint8_t code)
 {
@@ -744,6 +753,7 @@ void fire_it(int16_t delay)
 //      --------------- TOTAL_DELAY --------------           
 // power to fire the preflash at
 #define PREFLASH_POWER 2 // 0 - MAX_POWER
+//#define PREFLASH_POWER 0 // 0 - MAX_POWER
 
 #define SCR_DELAY 250 // us
 #define TOTAL_DELAY 5000 // us
@@ -805,6 +815,7 @@ void get_packet()
 // extract metadata
 //print_text("packet_type=");
 //print_hex2(packet_type);
+//print_text("\n");
             if(packet_type == TYPE_POWERON ||
                 packet_type == TYPE_METERING1)
             {
@@ -814,7 +825,7 @@ void get_packet()
             else
             if(packet_type == TYPE_PREFLASH1)
             {
-                if(ttl_mode == TTL_PREFLASH)
+                if(ttl_mode == TTL_PREFLASH || ttl_mode == TTL_FULL)
                 {
                     preflash_power = radio_packet[PREFLASH1_POWER];
 print_text("preflash_power=");
@@ -825,7 +836,7 @@ print_text("\n");
             else
             if(packet_type == TYPE_MANE_FLASH1)
             {
-                if(ttl_mode == TTL_PREFLASH)
+                if(ttl_mode == TTL_PREFLASH || ttl_mode == TTL_FULL)
                 {
                     flash_power = radio_packet[MANE_FLASH1_POWER];
 print_text("flash_power=");
@@ -841,7 +852,7 @@ print_text("\n");
                 int16_t delay = delay_values[PREFLASH_POWER];
                 if(!wait_trigger(TRIGGER_CODE_CLK))
                 {
-                    if(ttl_mode == TTL_PREFLASH)
+                    if(ttl_mode == TTL_PREFLASH || ttl_mode == TTL_FULL)
                     {
 // use hard coded power for preflash
                         fire_it(delay);
@@ -871,6 +882,7 @@ print_text("PREFLASH skipped\n");
                     power = PREFLASH_POWER + 
                         diff / CAM_PER_STOP + 
                         exposure_value;
+// round it
                     if(diff > 0 && (diff % CAM_PER_STOP) >= CAM_PER_STOP / 2)
                         power++;
                     else
@@ -879,17 +891,21 @@ print_text("PREFLASH skipped\n");
                     CLAMP(power, 0, MAX_POWER);
                     power_used = power;
                 }
-                
-                if(ttl_mode == TTL_MANEFLASH)
+
+// now firing mane flash
+                if(ttl_mode == TTL_MANEFLASH || ttl_mode == TTL_FULL)
                 {
                     delay = delay_values[power];
-                    ttl_mode = TTL_PREFLASH;
+                    if(ttl_mode != TTL_FULL) ttl_mode = TTL_PREFLASH;
+                    bitClear(LED2_GPIO, LED2_PIN);
                 }
                 else
+// now firing preflash
                 if(ttl_mode == TTL_PREFLASH)
                 {
                     skip = 1;
                     ttl_mode = TTL_MANEFLASH;
+                    bitSet(LED2_GPIO, LED2_PIN);
                 }
                 else
                 {
@@ -917,7 +933,7 @@ print_text("\n");
 print_text("MANE_FLASH skipped\n");
                         }
 
-                        if(ttl_mode) draw_screen();
+//                        if(ttl_mode) draw_screen();
                     }
                 }
             }
@@ -950,9 +966,14 @@ void main()
 {
 // disable watchdog
 	WDTCSR = 0;
-    
+
+// radio indicator
     bitSet(LED_DDR, LED_PIN);
     bitSet(LED_GPIO, LED_PIN);
+
+// mane flash indicator when not using LCD
+    bitSet(LED2_DDR, LED2_PIN);
+    bitClear(LED2_GPIO, LED2_PIN);
 
 // rely on data direction to get a 3.9V off voltage
 //    bitClear(X_PORT, X_PIN);
@@ -970,13 +991,13 @@ void main()
 
 
 // init the LCD
-    bitClear(LCD_CS_GPIO, LCD_CS_PIN);
-    bitSet(LCD_CS_DDR, LCD_CS_PIN);
-    bitClear(LCD_CLK_GPIO, LCD_CLK_PIN);
-    bitSet(LCD_CLK_DDR, LCD_CLK_PIN);
-    bitClear(LCD_MOSI_GPIO, LCD_MOSI_PIN);
-    bitSet(LCD_MOSI_DDR, LCD_MOSI_PIN);
-
+//     bitClear(LCD_CS_GPIO, LCD_CS_PIN);
+//     bitSet(LCD_CS_DDR, LCD_CS_PIN);
+//     bitClear(LCD_CLK_GPIO, LCD_CLK_PIN);
+//     bitSet(LCD_CLK_DDR, LCD_CLK_PIN);
+//     bitClear(LCD_MOSI_GPIO, LCD_MOSI_PIN);
+//     bitSet(LCD_MOSI_DDR, LCD_MOSI_PIN);
+// 
 
 // tick clock prescaler page 108
 // CLKio is 32khz
@@ -998,13 +1019,13 @@ void main()
 	init_serial();
     print_text("\n\nWelcome to manual to ETTL\n");
 
-    load_settings();
+//    load_settings();
 
     init_radio();
 
     uint16_t i = 0;
 
-    draw_screen();
+//    draw_screen();
 
 // enable interrupts
 	sei();
@@ -1037,8 +1058,8 @@ void main()
                         if(channel >= TOTAL_CHANNELS)
                             channel = 0;
                         set_channel();
-                        save_settings();
-                        draw_screen();
+//                        save_settings();
+//                        draw_screen();
                     }
                     else
                     if(!bitRead(MODE_IN, MODE_PIN) &&
@@ -1051,14 +1072,17 @@ void main()
                                 ttl_mode = TTL_PREFLASH;
                                 break;
                             case TTL_PREFLASH:
-                                ttl_mode = NO_TTL;
+                                ttl_mode = TTL_FULL;
                                 break;
                             case TTL_MANEFLASH:
+                                ttl_mode = TTL_FULL;
+                                break;
+                            case TTL_FULL:
                                 ttl_mode = NO_TTL;
                                 break;
                         }
-                        save_settings();
-                        draw_screen();
+//                        save_settings();
+//                        draw_screen();
                     }
                     else
                     if(!bitRead(UP_IN, UP_PIN))
@@ -1075,8 +1099,8 @@ void main()
                             if(manual_power > MAX_POWER)
                                 manual_power = 0;
                         }
-                        save_settings();
-                        draw_screen();
+//                        save_settings();
+//                        draw_screen();
                     }
                     else
                     if(!bitRead(DOWN_IN, DOWN_PIN))
@@ -1093,8 +1117,8 @@ void main()
                             if(manual_power > MAX_POWER)
                                 manual_power = MAX_POWER;
                         }
-                        save_settings();
-                        draw_screen();
+//                        save_settings();
+//                        draw_screen();
                     }
                 }
             }

@@ -3,23 +3,28 @@ What you'll find here:
 
 ----------------------------------------------------------------------------
 
-Software to provide manual control to a Canon 244T.
+Software to provide TTL to a Canon 244T.  This uses a double exposure
+method.  The 1st exposure fires only the preflash.  The 2nd exposure
+fires only the post flash with the required power.
 
 THE 300V CAPS MUST BE COMPLETELY DISCHARGED BEFORE ANY WORK ON THE
 FLASH.  The caps retain lethal voltage indefinitely after the flash is
 powered off.
 
-The 244T measures the resistance of a photodiode between 5.5V &
-photodiode 0V to determine the amount of power.  This program merely
-provides an adjustible resistor to replace the photodiode.  The
-resistance is logarithmic & set with up & down buttons.  A junk LED
-readout shows 0-10 for the value.
+The 244T has a trigger signal & a quench signal inside.  The time
+between the trigger & quench determines the power.  A previous design
+used variable resistance to simulate a photodiode.  The latest design
+only uses a timer.
 
-flash34.jpg: labeled photo of the flash innards
+manual_to_ttl.c: the latest program with outdated GPIOs
+manual_to_ttl.pcb: future board
+244t.FCStd: an enclosure for the board
 
-resistor*.jpg: the board in various stages of completion
+flash34.jpg: obsolete photo of the flash innards
 
-flash_pot.pcb: circuit board using a junk LED readout.  Read with the
+resistor*.jpg: obsolete board in various stages of completion
+
+flash_pot.pcb: obsolete circuit board using a junk LED readout.  Read with the
 pcb program: http://pcb.geda-project.org/  It connects to the following
 flash pads:
 

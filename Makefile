@@ -35,7 +35,7 @@ ARM_LFLAGS := -mcpu=cortex-m4 \
 AVR_DIR := /root/arduino-1.8.15/hardware/tools/avr/bin/
 AVR_GCC := $(AVR_DIR)avr-gcc
 AVR_OBJCOPY := $(AVR_DIR)avr-objcopy -j .text -j .data -O ihex
-AVR_DUDE := avrdude -v -patmega328p -cstk500v1 -P/dev/ttyACM1 -b19200
+AVR_DUDE := avrdude -v -patmega328p -cstk500v1 -P/dev/ttyACM0 -b19200
 AVR_CFLAGS := -O2 -mmcu=atmega328p
 AVR_LFLAGS := -O2 -mmcu=atmega328p -Wl,--section-start=.text=0x0000 -nostdlib
 

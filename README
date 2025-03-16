@@ -16,11 +16,14 @@ between the trigger & quench determines the power.  A previous design
 used variable resistance to simulate a photodiode.  The latest design
 only uses a timer.
 
+The original photodiode, hot shoe must be disconnected.  Several new
+connections are made to the flash.
+
 manual_to_ttl.c: the latest program with outdated GPIOs
-manual_to_ttl.pcb: future board
+manual_to_ttl.pcb: the circuit board
 244t.FCStd: an enclosure for the board
 
-flash34.jpg: obsolete photo of the flash innards
+flash34.jpg: diagram of the flash connection points
 
 resistor*.jpg: obsolete board in various stages of completion
 
@@ -34,8 +37,7 @@ flash pads:
     GND -> BATT GND
     The crystal can be any frequency down to 32khz.
 
-The photodiode must be disconnected from photodiode 0-5.5V & photodiode
-0V.
+
 
 
 usb_programmer.c: a junk PIC programmer.  The hex file is programmable
